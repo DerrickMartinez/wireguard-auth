@@ -97,11 +97,19 @@ var listCmd = &cobra.Command{
 	},
 }
 
-var rotateUserCmd = &cobra.Command{
-	Use:   "rotate",
-	Short: "Rotate a user's public key",
+var updateRoutesCmd = &cobra.Command{
+	Use:   "update-routes",
+	Short: "Change a user's routes",
 	Run: func(cmd *cobra.Command, args []string) {
-		user.Rotate(&cfgVars, awsSession())
+		user.UpdateRoutes(&cfgVars, awsSession())
+	},
+}
+
+var resendEmailCmd = &cobra.Command{
+	Use:   "resend-email",
+	Short: "Email config to user again",
+	Run: func(cmd *cobra.Command, args []string) {
+		user.ResendEmail(&cfgVars, awsSession())
 	},
 }
 
@@ -129,29 +137,33 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.wireguard-auth.yaml)")
 
-	addUserCmd.Flags().StringVar(&cfgVars.ProfileName, "profile-name", "", "Profile name to add to database")
+	addUserCmd.Flags().StringVar(&cfgVars.ProfileName, "profile-name", "", "Profile name")
 	addUserCmd.Flags().BoolVar(&cfgVars.SplitTunnel, "split-tunnel", false, "Use split tunnel (default false)")
-	addUserCmd.Flags().StringVar(&cfgVars.RoutesAllow, "routes-allow", "", "Allow CIDRs (if different from default). Example: 1.1.1.1/32,2.0.0.0/8")
+	addUserCmd.Flags().StringVar(&cfgVars.RoutesAllow, "routes-allow", "", "Allow CIDRs (if different from default). i.e.: 1.1.1.1/32,2.0.0.0/8")
 	addUserCmd.Flags().StringVar(&cfgVars.Email, "email", "", "Email")
 	addUserCmd.MarkFlagRequired("profile-name")
 	addUserCmd.MarkFlagRequired("email")
 	rootCmd.AddCommand(addUserCmd)
 
-	removeUserCmd.Flags().StringVar(&cfgVars.ProfileName, "profile-name", "", "Profile name to remove from database")
+	removeUserCmd.Flags().StringVar(&cfgVars.ProfileName, "profile-name", "", "Profile name")
 	removeUserCmd.MarkFlagRequired("profile-name")
 	rootCmd.AddCommand(removeUserCmd)
 
-	authCmd.Flags().StringVar(&cfgVars.PubKey, "pubkey", "", "Pubkey of the vpn user to authenticate")
+	authCmd.Flags().StringVar(&cfgVars.PubKey, "pubkey", "", "Pubkey of the vpn user")
 	authCmd.MarkFlagRequired("pubkey")
 	rootCmd.AddCommand(authCmd)
 	rootCmd.AddCommand(syncCmd)
 	rootCmd.AddCommand(listCmd)
 
-	rotateUserCmd.Flags().StringVar(&cfgVars.ProfileName, "profile-name", "", "Profile name to rotate keys for")
-	rotateUserCmd.Flags().StringVar(&cfgVars.PubKey, "pubkey", "", "Pubkey of the vpn user to authenticate")
-	rotateUserCmd.MarkFlagRequired("profile-name")
-	rotateUserCmd.MarkFlagRequired("pubkey")
-	rootCmd.AddCommand(rotateUserCmd)
+	updateRoutesCmd.Flags().StringVar(&cfgVars.ProfileName, "profile-name", "", "Profile name")
+	updateRoutesCmd.Flags().StringVar(&cfgVars.RoutesAllow, "routes-allow", "", "Allow routes in CIDR format separated by comma i.e. 1.1.1.1/32,2.0.0.0/8")
+	updateRoutesCmd.MarkFlagRequired("profile-name")
+	updateRoutesCmd.MarkFlagRequired("routes-allow")
+	rootCmd.AddCommand(updateRoutesCmd)
+
+	resendEmailCmd.Flags().StringVar(&cfgVars.ProfileName, "profile-name", "", "Profile name")
+	resendEmailCmd.MarkFlagRequired("profile-name")
+	rootCmd.AddCommand(resendEmailCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.

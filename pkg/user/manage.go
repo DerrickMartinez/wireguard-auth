@@ -6,7 +6,9 @@ import (
   "os"
   "fmt"
   "text/tabwriter"
+  "errors"
   "strings"
+  "strconv"
 
   "github.com/derrickmartinez/wireguard-auth/pkg/util"
 
@@ -14,10 +16,8 @@ import (
   "github.com/jordan-wright/email"
   "github.com/aws/aws-sdk-go/service/dynamodb"
   "github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-  "github.com/aws/aws-sdk-go/service/dynamodb/expression"
   "golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"github.com/spf13/viper"
-  "github.com/segmentio/ksuid"
   log "github.com/sirupsen/logrus"
 )
 
@@ -29,7 +29,6 @@ type User struct {
   Clientip    uint32
   Routesallow string
   Email       string
-  Active      bool
   Splittunnel bool
   Serial      int
 }
@@ -44,8 +43,13 @@ func Add(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool {
     clientIP =  util.Ip2int(net.ParseIP(viper.GetString("ipPoolStart")))
   }
 
-  routesAllow := strings.Join(viper.GetStringSlice("defaultRoutesAllow"), ", ")
-
+  routesAllow := ""
+  if len(vars.RoutesAllow) == 0 {
+    routesAllow = strings.Join(viper.GetStringSlice("defaultRoutesAllow"), ",")
+  } else {
+    routesAllow = strings.Replace(vars.RoutesAllow, " ", "", -1)
+  }
+  
   privateKey, err := wgtypes.GeneratePrivateKey()
   if err != nil {
     log.Fatal("Error generating private key: %v", err)
@@ -57,16 +61,15 @@ func Add(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool {
   }
  
   user := User {
-    Pubkey: ksuid.New().String(),
+    Pubkey: privateKey.PublicKey().String(),
     Clientip: clientIP,
     ProfileName: vars.ProfileName,
     Privkey: privateKey.String(),
     Psk: psk.String(),
     Routesallow: routesAllow,
     Email: vars.Email,
-    Active: false,
     Splittunnel: vars.SplitTunnel,
-    Serial: 1,
+    Serial: 0,
   }
 
   if !addRecord(user, svc) {
@@ -79,7 +82,6 @@ func Add(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool {
       log.Fatalf("Error sending email: %v", err)
       return false
     }
-    log.Infof("Email sent to %v", user.Email)
   }
 
   log.Info(vars.ProfileName + " succesfully added")
@@ -89,58 +91,17 @@ func Add(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool {
 
 // Find a user and remove
 func Remove(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool {
-  users := scan(false, svc)
-  if len(users) == 0 {
-    log.Error("There are no users in the table")
+  curRecord, err := getUser(vars, svc)
+  if err != nil {
+    log.Errorf("Unable to send email: %v", err)
     return false
-  }
-
-  curRecord := findUser(users, vars.ProfileName)
-  if curRecord.Pubkey == "" {
-    log.Error("No user found to remove")
-    return false
-  }
+  } 
 
   if !deleteRecord(curRecord, svc) {
     return false
   }
   
   log.Info(vars.ProfileName + " succesfully removed")
-
-  return true
-}
-
-// Find an exisiting profile name and set the public key
-func Rotate(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool {
-  users := scan(false, svc)
-  if len(users) == 0 {
-    log.Error("There are no users in the table")
-    return false
-  }
-
-  oldRecord := findUser(users, vars.ProfileName)
-  if oldRecord.Pubkey == "" {
-    log.Error("No user found to rotate")
-    return false
-  }
-
-  newRecord := oldRecord
-  newRecord.Pubkey = vars.PubKey
-
-  // Ensure active is set to true
-  newRecord.Active = true
-
-  if !addRecord(newRecord, svc) {
-    return false
-  }
-
-  // Clean up old record
-
-  if !deleteRecord(oldRecord, svc) {
-    return false
-  }
-
-  log.Info(vars.ProfileName + " succesfully rotated")
 
   return true
 }
@@ -160,6 +121,57 @@ func List(svc *dynamodb.DynamoDB) {
     fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", v.ProfileName, v.Email, v.Pubkey, util.Int2ip(v.Clientip), v.Splittunnel)
   }
   w.Flush()
+}
+
+// Resend a user's email
+func ResendEmail(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool {
+  user, err := getUser(vars, svc)
+  if err != nil {
+    log.Errorf("Unable to send email: %v", err)
+    return false
+  } 
+  err = sendEmail(user)
+  if err != nil {
+    log.Fatalf("Error sending email: %v", err)
+    return false
+  }
+  return true
+}
+
+// Update a user's allowed routes
+func UpdateRoutes(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool{
+  user, err := getUser(vars, svc)
+  if err != nil {
+    log.Errorf("Unable to send email: %v", err)
+    return false
+  }
+
+  input := &dynamodb.UpdateItemInput{
+    ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+        ":routes": {
+            S: aws.String(strings.Replace(vars.RoutesAllow, " ", "", -1)),
+        },
+        ":serial": {
+            N: aws.String(strconv.Itoa(user.Serial + 1)),
+        },
+    },
+    TableName: aws.String(viper.GetString("dynamoDBTable")),
+    Key: map[string]*dynamodb.AttributeValue{
+        "Pubkey": {
+            S: aws.String(user.Pubkey),
+        },
+    },
+    UpdateExpression: aws.String("set Routesallow = :routes, Serial = :serial"),
+  }
+
+  _, err = svc.UpdateItem(input)
+  if err != nil {
+      log.Error(err)
+      return false
+  }
+
+  log.Info(vars.ProfileName + " succesfully updated")
+  return true
 }
 
 // Get user by primary key
@@ -189,6 +201,19 @@ func GetUser(pubKey string, svc *dynamodb.DynamoDB) User {
   return user
 }
 
+// Get user by profile name
+func getUser(vars *util.CmdVars, svc *dynamodb.DynamoDB) (User, error) {
+  users := scan(false, svc)
+  if len(users) == 0 {
+    return User{}, errors.New("There are no users in the table")
+  }
+
+  user := findUser(users, vars.ProfileName)
+  if user.Pubkey == "" {
+    return User{}, errors.New("No user found")
+  }
+  return user, nil
+}
 
 // Find max
 func max(arr []User) uint32 {
@@ -201,43 +226,20 @@ func max(arr []User) uint32 {
     return max
 }
 
-// Generate params for query
-func dynamoParams(filter bool) *dynamodb.ScanInput {
-  table := aws.String(viper.GetString("dynamoDBTable"))
-
-  if filter {
-    filt := expression.Name("Active").Equal(expression.Value(true))
-    expr, err := expression.NewBuilder().WithFilter(filt).Build()
-    if err != nil {
-      log.Fatal("Error building expression")
-    }
-
-    // Build the query input parameters
-    params := &dynamodb.ScanInput{
-      TableName: table,
-      FilterExpression: expr.Filter(),
-      ExpressionAttributeNames:  expr.Names(),
-      ExpressionAttributeValues: expr.Values(),
-    }
-    return params
-  } else {
-    // all items
-    params := &dynamodb.ScanInput{
-      TableName: table,
-    }
-    return params
-  }
-}
-
 // Scan DynamoDB and return a slice of structs
 func scan(filter bool, svc *dynamodb.DynamoDB) []User {
-  params := dynamoParams(filter)
+  table := aws.String(viper.GetString("dynamoDBTable"))
+
+  params := &dynamodb.ScanInput{
+    TableName: table,
+  }
+
+  users := []User{}
+
   result, err := svc.Scan(params)
   if err != nil {
     log.Errorf("failed to make Query API call, %v", err)
   }
-
-  users := []User{}
 
   err = dynamodbattribute.UnmarshalListOfMaps(result.Items, &users)
   if err != nil {
@@ -277,11 +279,16 @@ func sendEmail(user User) error {
   } else {
     routes = "0.0.0.0/0"
   }
+  serverPubkey, err := wgtypes.ParseKey(viper.GetString("server.privateKey"))
+  if err != nil {
+    log.Error(err)
+  }
 
   config := "[Interface]\nPrivateKey = "+user.Privkey+"\n"+
   "Address = "+util.Int2ip(user.Clientip).String()+"/32\n"+
   "DNS = "+viper.GetString("clientConfig.dns")+"\n\n"+
-  "[Peer]\nPublicKey = "+viper.GetString("clientConfig.serverPubkey")+"\n"+
+  "[Peer]\nPublicKey = "+serverPubkey.PublicKey().String()+"\n"+
+  "PresharedKey = "+user.Psk+"\n"+
   "AllowedIPs = "+routes+"\n"+
   "Endpoint = "+viper.GetString("clientConfig.serverAddress")+"\n"+
   "PersistentKeepalive = 25\n"
@@ -303,6 +310,7 @@ func sendEmail(user User) error {
       return err
     }
   }
+  log.Infof("Email sent to %v", user.Email)
   return nil
 }
 

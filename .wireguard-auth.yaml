@@ -3,9 +3,15 @@ ipPoolStart: 172.20.0.2
 region: us-west-2
 dynamoDBTable: ops-vpn
 
+server:
+  extInterface: ens5
+  wgInterface: wg0
+  privateKey: ABCD1234789278930091237=
+  port: 51820
+
 smtp:
   enabled: true
-  from: VPN <vpn@example.com>
+  from: DevOps <devops@example.com>
   server: smtp.example.com
   port: 25
   body: "Attached is your VPN profile. Please open with the Wireguard GUI"
@@ -13,11 +19,11 @@ smtp:
   username: ""
   password: ""
 
-# DUO MFA config
+# For duo MFA
 mfa:
-  ikey: ABCDd1234
-  skey: SECRETKEY
-  host: api-12345.duosecurity.com
+  ikey: HUIOUIQIOWEIOMQWIOE
+  skey: cjiejieu1AjLjZ92920GbNokeoikeokokeoiI
+  host: api-123456.duosecurity.com
 
 clientConfig:
   # Routes to be pushed to user
@@ -27,10 +33,30 @@ clientConfig:
   dns: 8.8.8.8
   # server address and port
   serverAddress: wireguard.example.com:51820
-  # Public key in case users run this program outside of the server
-  serverPubkey: 052gIU7qsQFp+sOH0+/IK5LdABCD=
 
-# Default routes to allow if not specified
+# Default routes to allow if not specified (server side)
 defaultRoutesAllow:
-- 10.182.0.0/16
+- 10.130.0.0/16
+- 10.162.0.0/16
+- 10.163.0.0/16
+- 10.164.0.0/16
+- 10.165.0.0/16
+- 10.167.0.0/16
+- 10.168.0.0/16
+- 10.170.0.0/16
+- 10.171.0.0/16
+- 10.172.0.0/16
+- 10.173.0.0/16
 - 10.175.0.0/16
+- 10.177.0.0/16
+- 10.178.0.0/16
+- 10.180.0.0/16
+- 10.181.0.0/16
+- 10.182.0.0/16
+- 10.183.0.0/16
+- 10.184.0.0/16
+- 10.187.0.0/16
+- 10.188.0.0/16
+- 10.190.0.0/16
+- 10.193.0.0/16
+- 10.194.0.0/16
