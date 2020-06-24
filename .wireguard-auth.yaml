@@ -1,0 +1,36 @@
+syncInterval: 60
+ipPoolStart: 172.20.0.2
+region: us-west-2
+dynamoDBTable: ops-vpn
+
+smtp:
+  enabled: true
+  from: VPN <vpn@example.com>
+  server: smtp.example.com
+  port: 25
+  body: "Attached is your VPN profile. Please open with the Wireguard GUI"
+  authLogin: false
+  username: ""
+  password: ""
+
+# DUO MFA config
+mfa:
+  ikey: ABCDd1234
+  skey: SECRETKEY
+  host: api-12345.duosecurity.com
+
+clientConfig:
+  # Routes to be pushed to user
+  routes:
+  - 172.16.0.0/12
+  - 10.128.0.0/10
+  dns: 8.8.8.8
+  # server address and port
+  serverAddress: wireguard.example.com:51820
+  # Public key in case users run this program outside of the server
+  serverPubkey: 052gIU7qsQFp+sOH0+/IK5LdABCD=
+
+# Default routes to allow if not specified
+defaultRoutesAllow:
+- 10.182.0.0/16
+- 10.175.0.0/16
