@@ -11,6 +11,7 @@ import (
   "github.com/derrickmartinez/wireguard-auth/pkg/util"
   "github.com/derrickmartinez/wireguard-auth/pkg/user"
 
+  "github.com/ZachtimusPrime/Go-Splunk-HTTP/splunk"
   "github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/duosecurity/duo_api_golang"
 	"github.com/spf13/viper"
@@ -56,10 +57,31 @@ func Validate(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool {
   	log.Error("Error decoding response")
   	return false
   }
+
+    if viper.GetBool("splunk.enabled") {
+      // Set up splunk client
+      splunk := splunk.NewClient(
+        nil,
+        "https://"+viper.GetString("splunk.server")+":8088/services/collector",
+        viper.GetString("splunk.token"),
+        viper.GetString("splunk.source"),
+        viper.GetString("splunk.sourcetype"),
+        viper.GetString("splunk.index"),
+      )
+      var i interface{}
+
+      m := map[string]string{"msg": "VPN auth request",  "profile": authUser.ProfileName, "email": authUser.Email, "endpoint": vars.Endpoint, "result": duoResp.Response.Result}
+      i = m
+      err := splunk.Log(i)
+      if err != nil {
+        log.Error(err)
+      }
+  }
+
   if duoResp.Response.Result != "allow" {
-    log.Infof("User %v not allowed")
+    log.Infof("User %v not allowed", user)
     return false
   }
-  log.Infof("User %v allowed")
+  log.Infof("User %v allowed", user)
   return true
 }

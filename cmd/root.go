@@ -150,6 +150,7 @@ func init() {
 	rootCmd.AddCommand(removeUserCmd)
 
 	authCmd.Flags().StringVar(&cfgVars.PubKey, "pubkey", "", "Pubkey of the vpn user")
+	authCmd.Flags().StringVar(&cfgVars.Endpoint, "endpoint", "", "Endpoint of the user authenticating")
 	authCmd.MarkFlagRequired("pubkey")
 	rootCmd.AddCommand(authCmd)
 	rootCmd.AddCommand(syncCmd)

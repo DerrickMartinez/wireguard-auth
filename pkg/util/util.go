@@ -10,6 +10,7 @@ type CmdVars struct {
     ProfileName    string
     SplitTunnel bool
     RoutesAllow string
+    Endpoint string
     Email	string
 }
 

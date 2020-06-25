@@ -25,6 +25,14 @@ mfa:
   skey: cjiejieu1AjLjZ92920GbNokeoikeokokeoiI
   host: api-123456.duosecurity.com
 
+splunk:
+  enabled: false
+  token: abcd-1234-1234-abcd-12345
+  server: splunk.example.com
+  index: main
+  source: vpn
+  sourcetype: audit
+
 clientConfig:
   # Routes to be pushed to user
   routes:
