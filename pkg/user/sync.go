@@ -199,6 +199,28 @@ func addIPTables(user User, ipt *iptables.IPTables) bool {
       return false
     }
   }
+  if !user.Splittunnel && viper.GetBool("allowInternet") {
+    err = ipt.Append("filter", ip, "-s", ip+"/32", "-d", "10.0.0.0/8", "-o", extInterface, "-j", "DROP")
+    if err != nil {
+      log.Error(err)
+      return false
+    }
+    err = ipt.Append("filter", ip, "-s", ip+"/32", "-d", "172.16.0.0/12", "-o", extInterface, "-j", "DROP")
+    if err != nil {
+      log.Error(err)
+      return false
+    }
+    err = ipt.Append("filter", ip, "-s", ip+"/32", "-d", "192.168.0.0/16", "-o", extInterface, "-j", "DROP")
+    if err != nil {
+      log.Error(err)
+      return false
+    }
+    err = ipt.Append("filter", ip, "-s", ip+"/32", "-d", "0.0.0.0/0", "-o", extInterface, "-j", "ACCEPT")
+    if err != nil {
+      log.Error(err)
+      return false
+    }
+  }
   err = ipt.Insert("filter", "FORWARD", 1, "-j", ip)
   if err != nil {
     log.Error(err)

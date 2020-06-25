@@ -3,6 +3,9 @@ ipPoolStart: 172.20.0.2
 region: us-west-2
 dynamoDBTable: ops-vpn
 
+# Allow internet on full tunnel connections. If true; also adds a deny for RFC1918 networks
+allowInternet: true
+
 server:
   extInterface: ens5
   wgInterface: wg0
