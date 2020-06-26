@@ -33,6 +33,12 @@ type User struct {
   Serial      int
 }
 
+type Rule struct {
+    Route string
+    Proto string
+    Port  int
+}
+
 // Add a user to the DynamoDB table
 func Add(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool {
   var clientIP uint32 = 0
@@ -43,13 +49,6 @@ func Add(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool {
     clientIP =  util.Ip2int(net.ParseIP(viper.GetString("ipPoolStart")))
   }
 
-  routesAllow := ""
-  if len(vars.RoutesAllow) == 0 {
-    routesAllow = strings.Join(viper.GetStringSlice("defaultRoutesAllow"), ",")
-  } else {
-    routesAllow = strings.Replace(vars.RoutesAllow, " ", "", -1)
-  }
-  
   privateKey, err := wgtypes.GeneratePrivateKey()
   if err != nil {
     log.Fatal("Error generating private key: %v", err)
@@ -66,7 +65,7 @@ func Add(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool {
     ProfileName: vars.ProfileName,
     Privkey: privateKey.String(),
     Psk: psk.String(),
-    Routesallow: routesAllow,
+    Routesallow: buildRoutes(vars),
     Email: vars.Email,
     Splittunnel: vars.SplitTunnel,
     Serial: 0,
@@ -93,7 +92,7 @@ func Add(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool {
 func Remove(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool {
   curRecord, err := getUser(vars, svc)
   if err != nil {
-    log.Errorf("Unable to send email: %v", err)
+    log.Errorf("%v", err)
     return false
   } 
 
@@ -127,7 +126,7 @@ func List(svc *dynamodb.DynamoDB) {
 func ResendEmail(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool {
   user, err := getUser(vars, svc)
   if err != nil {
-    log.Errorf("Unable to send email: %v", err)
+    log.Errorf("%v", err)
     return false
   } 
   err = sendEmail(user)
@@ -142,14 +141,14 @@ func ResendEmail(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool {
 func UpdateRoutes(vars *util.CmdVars, svc *dynamodb.DynamoDB) bool{
   user, err := getUser(vars, svc)
   if err != nil {
-    log.Errorf("Unable to send email: %v", err)
+    log.Errorf("%v", err)
     return false
   }
 
   input := &dynamodb.UpdateItemInput{
     ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
         ":routes": {
-            S: aws.String(strings.Replace(vars.RoutesAllow, " ", "", -1)),
+            S: aws.String(strings.Replace(buildRoutes(vars), " ", "", -1)),
         },
         ":serial": {
             N: aws.String(strconv.Itoa(user.Serial + 1)),
@@ -210,7 +209,7 @@ func getUser(vars *util.CmdVars, svc *dynamodb.DynamoDB) (User, error) {
 
   user := findUser(users, vars.ProfileName)
   if user.Pubkey == "" {
-    return User{}, errors.New("No user found")
+    return User{}, errors.New("No profile found for "+vars.ProfileName)
   }
   return user, nil
 }
@@ -343,4 +342,33 @@ func deleteRecord(user User, svc *dynamodb.DynamoDB) bool {
     return false
   }
   return true
+}
+
+func buildRoutes(vars  *util.CmdVars) string {
+  routes := ""
+  if len(vars.Routes) > 0 {
+    routes = strings.Replace(vars.Routes, " ", "", -1)
+  } else {
+    var rules []Rule
+    err := viper.UnmarshalKey("ruleProfiles."+vars.Rule, &rules)
+    if err != nil {
+      log.Error(err)
+      return ""
+    }
+    if len(rules) == 0 {
+      log.Error("Unable to match the specifed rule against ruleProfiles")
+      return ""
+    }
+
+    var tmpRoutes []string
+    for _, r := range rules {
+      if r.Port != 0 {
+        tmpRoutes = append(tmpRoutes, r.Route+"->"+strconv.Itoa(r.Port)+"/"+r.Proto)
+      } else {
+        tmpRoutes = append(tmpRoutes, r.Route)
+      }
+    }
+    routes = strings.Join(tmpRoutes, ",")
+  }
+  return routes
 }

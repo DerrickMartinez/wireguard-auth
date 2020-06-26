@@ -45,29 +45,13 @@ clientConfig:
   # server address and port
   serverAddress: wireguard.example.com:51820
 
-# Default routes to allow if not specified (server side)
-defaultRoutesAllow:
-- 10.130.0.0/16
-- 10.162.0.0/16
-- 10.163.0.0/16
-- 10.164.0.0/16
-- 10.165.0.0/16
-- 10.167.0.0/16
-- 10.168.0.0/16
-- 10.170.0.0/16
-- 10.171.0.0/16
-- 10.172.0.0/16
-- 10.173.0.0/16
-- 10.175.0.0/16
-- 10.177.0.0/16
-- 10.178.0.0/16
-- 10.180.0.0/16
-- 10.181.0.0/16
-- 10.182.0.0/16
-- 10.183.0.0/16
-- 10.184.0.0/16
-- 10.187.0.0/16
-- 10.188.0.0/16
-- 10.190.0.0/16
-- 10.193.0.0/16
-- 10.194.0.0/16
+# Rule profiles. Easily add in certain groups. Proto and port are optional
+#   ruleProfiles:
+#   supportUsers:
+#   - route: 10.190.0.0/24
+#     proto: tcp
+#     port: 80
+#   - route: 10.190.0.0/24
+#     proto: tcp
+#     port: 443
+#   - route: 172.16.0.0/24

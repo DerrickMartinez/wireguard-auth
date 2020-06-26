@@ -192,11 +192,22 @@ func addIPTables(user User, ipt *iptables.IPTables) bool {
     return false
   }
   routes := strings.Split(user.Routesallow, ",")
-  for _, route := range routes {
-    err = ipt.Append("filter", ip, "-s", ip+"/32", "-d", route, "-o", extInterface, "-j", "ACCEPT")
-    if err != nil {
-      log.Error(err)
-      return false
+  for _, v := range routes {
+    v := strings.Split(v, "->")
+    destIP := v[0]
+    if len(v) > 1 {
+      v := strings.Split(v[1], "/")
+      err = ipt.Append("filter", ip, "-s", ip+"/32", "-p", v[1], "--dport", v[0], "-d", destIP, "-o", extInterface, "-j", "ACCEPT")
+      if err != nil {
+        log.Error(err)
+        return false
+      }
+    } else {
+      err = ipt.Append("filter", ip, "-s", ip+"/32", "-d", destIP, "-o", extInterface, "-j", "ACCEPT")
+      if err != nil {
+        log.Error(err)
+        return false
+      }
     }
   }
   if !user.Splittunnel && viper.GetBool("allowInternet") {
@@ -230,8 +241,14 @@ func addIPTables(user User, ipt *iptables.IPTables) bool {
 }
 
 func clearIPTables(ip string, ipt *iptables.IPTables) bool {
-  err := ipt.ClearChain("filter", ip)
+  // Check to see if the chain exists
+  tables, err := ipt.ListChains("filter")
+  if !findChain(tables, ip) {
+    return false
+  }
+  err = ipt.ClearChain("filter", ip)
   if err != nil {
+    log.Error(err)
     return false
   }
   err = ipt.Delete("filter", "FORWARD", "-j", ip)
@@ -246,3 +263,11 @@ func clearIPTables(ip string, ipt *iptables.IPTables) bool {
   return true
 }
 
+func findChain(slice []string, val string) bool {
+    for _, item := range slice {
+        if item == val {
+            return true
+        }
+    }
+    return false
+}

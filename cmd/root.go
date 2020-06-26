@@ -69,6 +69,10 @@ var addUserCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add a user to the database",
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(cfgVars.Routes) == 0 && len(cfgVars.Rule) == 0 {
+			fmt.Println("Error: You must specify a rule or routes")
+			os.Exit(1)
+		}
 		user.Add(&cfgVars, awsSession())
 	},
 }
@@ -101,6 +105,10 @@ var updateRoutesCmd = &cobra.Command{
 	Use:   "update-routes",
 	Short: "Change a user's routes",
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(cfgVars.Routes) == 0 && len(cfgVars.Rule) == 0 {
+			fmt.Println("Error: You must specify a rule or routes")
+			os.Exit(1)
+		}
 		user.UpdateRoutes(&cfgVars, awsSession())
 	},
 }
@@ -137,16 +145,17 @@ func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.wireguard-auth.yaml)")
 
-	addUserCmd.Flags().StringVar(&cfgVars.ProfileName, "profile-name", "", "Profile name")
+	addUserCmd.Flags().StringVar(&cfgVars.ProfileName, "profile", "", "Profile name")
 	addUserCmd.Flags().BoolVar(&cfgVars.SplitTunnel, "split-tunnel", false, "Use split tunnel (default false)")
-	addUserCmd.Flags().StringVar(&cfgVars.RoutesAllow, "routes-allow", "", "Allow CIDRs (if different from default). i.e.: 1.1.1.1/32,2.0.0.0/8")
+	addUserCmd.Flags().StringVar(&cfgVars.Rule, "rule", "", "Use a routing rule (optional)")
+	addUserCmd.Flags().StringVar(&cfgVars.Routes, "routes", "", "Allow routes separated by comma with or without port/proto i.e. 1.1.1.1/32->22/tcp,2.0.0.0/8 (optional)")
 	addUserCmd.Flags().StringVar(&cfgVars.Email, "email", "", "Email")
-	addUserCmd.MarkFlagRequired("profile-name")
+	addUserCmd.MarkFlagRequired("profile")
 	addUserCmd.MarkFlagRequired("email")
 	rootCmd.AddCommand(addUserCmd)
 
-	removeUserCmd.Flags().StringVar(&cfgVars.ProfileName, "profile-name", "", "Profile name")
-	removeUserCmd.MarkFlagRequired("profile-name")
+	removeUserCmd.Flags().StringVar(&cfgVars.ProfileName, "profile", "", "Profile name")
+	removeUserCmd.MarkFlagRequired("profile")
 	rootCmd.AddCommand(removeUserCmd)
 
 	authCmd.Flags().StringVar(&cfgVars.PubKey, "pubkey", "", "Pubkey of the vpn user")
@@ -156,14 +165,14 @@ func init() {
 	rootCmd.AddCommand(syncCmd)
 	rootCmd.AddCommand(listCmd)
 
-	updateRoutesCmd.Flags().StringVar(&cfgVars.ProfileName, "profile-name", "", "Profile name")
-	updateRoutesCmd.Flags().StringVar(&cfgVars.RoutesAllow, "routes-allow", "", "Allow routes in CIDR format separated by comma i.e. 1.1.1.1/32,2.0.0.0/8")
-	updateRoutesCmd.MarkFlagRequired("profile-name")
-	updateRoutesCmd.MarkFlagRequired("routes-allow")
+	updateRoutesCmd.Flags().StringVar(&cfgVars.ProfileName, "profile", "", "Profile name")
+	updateRoutesCmd.Flags().StringVar(&cfgVars.Rule, "rule", "", "Use a routing rule (optional)")
+	updateRoutesCmd.Flags().StringVar(&cfgVars.Routes, "routes", "", "Allow routes separated by comma with or without port/proto i.e. 1.1.1.1/32->22/tcp,2.0.0.0/8 (optional)")
+	updateRoutesCmd.MarkFlagRequired("profile")
 	rootCmd.AddCommand(updateRoutesCmd)
 
-	resendEmailCmd.Flags().StringVar(&cfgVars.ProfileName, "profile-name", "", "Profile name")
-	resendEmailCmd.MarkFlagRequired("profile-name")
+	resendEmailCmd.Flags().StringVar(&cfgVars.ProfileName, "profile", "", "Profile name")
+	resendEmailCmd.MarkFlagRequired("profile")
 	rootCmd.AddCommand(resendEmailCmd)
 }
 

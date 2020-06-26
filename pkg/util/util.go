@@ -7,11 +7,12 @@ import (
 
 type CmdVars struct {
     PubKey    	string
-    ProfileName    string
+    ProfileName string
     SplitTunnel bool
-    RoutesAllow string
-    Endpoint string
-    Email	string
+    Routes      string
+    Rule        string
+    Endpoint    string
+    Email	    string
 }
 
 
