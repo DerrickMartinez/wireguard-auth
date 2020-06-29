@@ -283,10 +283,14 @@ func sendEmail(user User) error {
     log.Error(err)
   }
 
+  dns := ""
+  if viper.GetString("clientConfig.dns") != "" {
+    dns = "DNS = "+viper.GetString("clientConfig.dns")+"\n"
+  }
+
   config := "[Interface]\nPrivateKey = "+user.Privkey+"\n"+
-  "Address = "+util.Int2ip(user.Clientip).String()+"/32\n"+
-  "DNS = "+viper.GetString("clientConfig.dns")+"\n\n"+
-  "[Peer]\nPublicKey = "+serverPubkey.PublicKey().String()+"\n"+
+  "Address = "+util.Int2ip(user.Clientip).String()+"/32\n"+dns+
+  "\n[Peer]\nPublicKey = "+serverPubkey.PublicKey().String()+"\n"+
   "PresharedKey = "+user.Psk+"\n"+
   "AllowedIPs = "+routes+"\n"+
   "Endpoint = "+viper.GetString("clientConfig.serverAddress")+"\n"+
