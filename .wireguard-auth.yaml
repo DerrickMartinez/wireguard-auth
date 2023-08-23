@@ -36,6 +36,11 @@ splunk:
   source: vpn
   sourcetype: audit
 
+loki:
+  enabled: true
+  pushURL: https://domain.com/loki/api/v1/push
+  basicAuth: 12345:eyJtoken
+
 clientConfig:
   # Routes to be pushed to user
   routes:

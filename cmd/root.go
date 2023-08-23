@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -19,39 +19,40 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
 	"github.com/derrickmartinez/wireguard-auth/pkg/mfa"
 	"github.com/derrickmartinez/wireguard-auth/pkg/user"
 	"github.com/derrickmartinez/wireguard-auth/pkg/util"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
-    "github.com/aws/aws-sdk-go/aws"
-    "github.com/aws/aws-sdk-go/aws/session"
-    "github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	homedir "github.com/mitchellh/go-homedir"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"github.com/spf13/cobra"
-
+	"github.com/spf13/viper"
 )
 
 var cfgFile string
 var cfgVars util.CmdVars
 
-var logLevels = map[string]log.Level{
-        "panic": log.PanicLevel,
-        "fatal": log.FatalLevel,
-        "error": log.ErrorLevel,
-        "warn":  log.WarnLevel,
-        "info":  log.InfoLevel,
-        "debug": log.DebugLevel,
-        "trace": log.TraceLevel,
+var logLevels = map[string]zerolog.Level{
+	"panic": zerolog.PanicLevel,
+	"fatal": zerolog.FatalLevel,
+	"error": zerolog.ErrorLevel,
+	"warn":  zerolog.WarnLevel,
+	"info":  zerolog.InfoLevel,
+	"debug": zerolog.DebugLevel,
+	"trace": zerolog.TraceLevel,
 }
 
 var rootCmd = &cobra.Command{
 	Use:   "wireguard-auth [sub]",
 	Short: "Wireguard Auth",
 	Run: func(cmd *cobra.Command, args []string) {
-	    cmd.Help()
-	    os.Exit(1)
+		cmd.Help()
+		os.Exit(1)
 	},
 }
 
@@ -59,9 +60,9 @@ var authCmd = &cobra.Command{
 	Use:   "auth",
 	Short: "Authenticate a user using 2FA",
 	Run: func(cmd *cobra.Command, args []string) {
-	  	if !mfa.Validate(&cfgVars, awsSession()) {
-	  		os.Exit(1)
-	  	}
+		if !mfa.Validate(&cfgVars, awsSession()) {
+			os.Exit(1)
+		}
 	},
 }
 
@@ -89,7 +90,7 @@ var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Sync wireguard with dynamodb (runs in foreground)",
 	Run: func(cmd *cobra.Command, args []string) {
-                user.Sync(&cfgVars, awsSession())
+		user.Sync(&cfgVars, awsSession())
 	},
 }
 
@@ -97,7 +98,7 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all users",
 	Run: func(cmd *cobra.Command, args []string) {
-                user.List(awsSession())
+		user.List(awsSession())
 	},
 }
 
@@ -127,7 +128,7 @@ func awsSession() *dynamodb.DynamoDB {
 		Region: aws.String(viper.GetString("region")),
 	})
 	if err != nil {
-		log.Fatal("Error creating AWS Session: %v\n", err)
+		log.Fatal().Err(err).Msg("Error creating AWS Session")
 		os.Exit(1)
 	}
 	// Create DynamoDB client
@@ -178,6 +179,7 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
@@ -188,20 +190,21 @@ func initConfig() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
-        viper.AutomaticEnv() // read in environment variables that match
-        viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+		viper.AutomaticEnv() // read in environment variables that match
+		viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 		// Search config in home directory with name ".wireguard-auth" (without extension).
 		viper.AddConfigPath(home)
 		viper.SetConfigName(".wireguard-auth")
 	}
 
-    // If a config file is found, read it in.
-    if err := viper.ReadInConfig(); err == nil {
-            if l, exists := logLevels[strings.ToLower(viper.GetString("logLevel"))]; exists {
-                    log.SetLevel(l)
-            }
-            log.Traceln("Log level set to", log.GetLevel().String())
-            log.WithField("file", viper.ConfigFileUsed()).Debugln("Using config file")
-    }
+	// If a config file is found, read it in.
+	if err := viper.ReadInConfig(); err == nil {
+		if l, exists := logLevels[strings.ToLower(viper.GetString("logLevel"))]; exists {
+			zerolog.SetGlobalLevel(l)
+			log.Info().Msgf("Log level set to %v\n", l)
+		}
+
+		log.Debug().Str("file", viper.ConfigFileUsed()).Msg("Using config file")
+	}
 }
